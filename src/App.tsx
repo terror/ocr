@@ -9,10 +9,10 @@ import Tesseract from 'tesseract.js';
 const LANGUAGE = 'eng';
 
 const SUPPORTED_FORMATS: string[] = [
-  'image/jpeg',
-  'image/png',
   'image/bmp',
   'image/gif',
+  'image/jpeg',
+  'image/png',
   'image/tiff',
   'image/webp',
 ];
