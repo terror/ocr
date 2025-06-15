@@ -1,11 +1,11 @@
-import { Copy, Download, FileImage, Loader2, Upload, X } from 'lucide-react';
-import React, { useCallback, useRef, useState } from 'react';
+import { DropZone } from '@/components/drop-zone';
+import { getFileSize } from '@/lib/utils';
+import { Copy, Download, FileImage, X } from 'lucide-react';
+import React, { useCallback, useState } from 'react';
 import { toast } from 'sonner';
 import Tesseract from 'tesseract.js';
 
-import { getFileSize } from './lib/utils';
-
-interface Result {
+interface Extraction {
   text: string;
   confidence: number;
   processingTime: number;
@@ -47,79 +47,11 @@ const Dialog: React.FC<{
   );
 };
 
-const DropZone: React.FC<{
-  onFileSelect: (file: File) => void;
-  isProcessing: boolean;
-  dragOver: boolean;
-  onDragOver: (e: React.DragEvent) => void;
-  onDragLeave: (e: React.DragEvent) => void;
-  onDrop: (e: React.DragEvent) => void;
-}> = ({
-  onFileSelect,
-  isProcessing,
-  dragOver,
-  onDragOver,
-  onDragLeave,
-  onDrop,
-}) => {
-  const fileInputRef = useRef<HTMLInputElement>(null);
-
-  return (
-    <div className='flex min-h-screen items-center justify-center p-4'>
-      <div
-        className={`w-full max-w-lg cursor-pointer rounded-xl border-2 border-dashed p-16 text-center transition-all ${
-          dragOver
-            ? 'scale-105 border-blue-500 bg-blue-50 dark:bg-blue-950'
-            : 'border-gray-300 hover:scale-105 hover:border-gray-400 dark:border-gray-600 dark:hover:border-gray-500'
-        } ${isProcessing ? 'pointer-events-none opacity-50' : ''}`}
-        onDrop={onDrop}
-        onDragOver={onDragOver}
-        onDragLeave={onDragLeave}
-        onClick={() => fileInputRef.current?.click()}
-      >
-        <input
-          ref={fileInputRef}
-          type='file'
-          accept='image/*'
-          onChange={(e) =>
-            e.target.files?.[0] && onFileSelect(e.target.files[0])
-          }
-          className='hidden'
-          disabled={isProcessing}
-        />
-
-        {isProcessing ? (
-          <div className='space-y-4'>
-            <Loader2 className='mx-auto h-16 w-16 animate-spin' />
-            <div>
-              <p className='text-xl font-medium'>Processing Image...</p>
-              <p className='text-gray-500'>Extracting text from your image</p>
-            </div>
-          </div>
-        ) : (
-          <div className='space-y-4'>
-            <Upload className='mx-auto h-16 w-16 text-gray-400' />
-            <div>
-              <p className='text-xl font-medium'>
-                Drop an image to extract text
-              </p>
-              <p className='text-gray-500'>or click to browse</p>
-              <p className='mt-2 text-sm text-gray-400'>
-                Supports PNG, JPEG, BMP, GIF, TIFF, WebP (max 10MB)
-              </p>
-            </div>
-          </div>
-        )}
-      </div>
-    </div>
-  );
-};
-
-const ResultDialog: React.FC<{
+const Extraction: React.FC<{
+  extraction?: Extraction;
   onClose: () => void;
   previewUrl: string | null;
-  result?: Result;
-}> = ({ result, onClose, previewUrl }) => {
+}> = ({ extraction: result, onClose, previewUrl }) => {
   const copyToClipboard = async () => {
     if (!result) return;
 
@@ -288,15 +220,16 @@ const ResultDialog: React.FC<{
 
 const App: React.FC = () => {
   const [dragOver, setDragOver] = useState(false);
-  const [isProcessing, setIsProcessing] = useState(false);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
-  const [result, setResult] = useState<Result | undefined>(undefined);
+  const [processing, setProcessing] = useState(false);
+  const [result, setResult] = useState<Extraction | undefined>(undefined);
 
-  const processOCR = async (file: File) => {
-    setIsProcessing(true);
+  const extract = async (file: File) => {
+    setProcessing(true);
     setResult(undefined);
 
     const startTime = Date.now();
+
     const fileUrl = URL.createObjectURL(file);
     setPreviewUrl(fileUrl);
 
@@ -315,11 +248,9 @@ const App: React.FC = () => {
         fileSize: getFileSize(file.size),
       });
     } catch (error) {
-      toast.error(
-        'Error processing image. Please try again with a different image.'
-      );
+      toast.error('Failed to process image, please try again.');
     } finally {
-      setIsProcessing(false);
+      setProcessing(false);
     }
   };
 
@@ -328,6 +259,7 @@ const App: React.FC = () => {
       toast.error(
         'Unsupported file format. Please upload an image file (PNG, JPEG, BMP, GIF, TIFF, WebP)'
       );
+
       return;
     }
 
@@ -336,7 +268,7 @@ const App: React.FC = () => {
       return;
     }
 
-    processOCR(file);
+    extract(file);
   }, []);
 
   const handleDrop = useCallback(
@@ -377,15 +309,15 @@ const App: React.FC = () => {
     <div className='min-h-screen bg-gray-50 dark:bg-gray-900'>
       <DropZone
         onFileSelect={handleFileSelect}
-        isProcessing={isProcessing}
+        isProcessing={processing}
         dragOver={dragOver}
         onDragOver={handleDragOver}
         onDragLeave={handleDragLeave}
         onDrop={handleDrop}
       />
 
-      <ResultDialog
-        result={result}
+      <Extraction
+        extraction={result}
         onClose={closeDialog}
         previewUrl={previewUrl}
       />
